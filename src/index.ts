@@ -1,48 +1,61 @@
-import * as e from "effect";
-import { type Effect, fn as effn } from "effect/Effect";
-import { type YieldWrap } from "effect/Utils"
-import { Tag } from "effect/Context";
-import { type UnionToIntersection, type Simplify } from "effect/Types";
+import {
+  type Effect,
+  fn,
+  gen,
+  dieMessage,
+  type Service,
+  isService,
+  makeService,
+  type Context,
+  emptyContext,
+  addToContext,
+  type UnionToIntersection,
+  type Simplify,
+  type Layer,
+  layerFromEffect,
+  layerFromImpl,
+  type Option,
+  none,
+  isNone,
+  some
+} from "./effect";
 
-type ExtractServices<T extends readonly Tag<any, any>[]> =
-  T extends readonly []
+type ExtractDependenciesObject<Services extends readonly Service<any, any>[]> =
+  Services extends readonly []
     ? {}
     : Simplify<UnionToIntersection<{
-        [K in keyof T]:
-          T[K] extends Tag<infer Id extends string, infer Interface>
+        [K in keyof Services]:
+          Services[K] extends Service<infer Id extends string, infer Interface>
             ? { readonly [P in Id]: Interface }
           :
           never
       }[number]>>;
 
-type ExtractRequirements<T extends readonly Tag<any, any>[]> = T[number]["Identifier"];
+type ExtractContext<Services extends readonly Service<any, any>[]> = Services[number]["Identifier"];
 
-export type GenEffect<A, E = never, R = never> =
-    Generator<YieldWrap<Effect<any, E, R>>, A, any>;
-
-type GeneratedEffect<GE extends GenEffect<any, any, any>> =
-  GE extends GenEffect<infer A, infer E, infer R> ?
+type GeneratedEffect<EffectGenerator extends fn.Return<any, any, any>> =
+  EffectGenerator extends fn.Return<infer A, infer E, infer R> ?
     Effect<A, E, R> : never;
 
-export const effunct: <Fn extends (...args: any) => GenEffect<any, any, any>> (fn: Fn) => (...args: Parameters<Fn>) => GeneratedEffect<ReturnType<Fn>> = fn => {
-  return effn(fn.name)(fn) as any;
+export const effunct: <EffectGeneratorFn extends (...args: any) => fn.Return<any, any, any>> (generatorFn: EffectGeneratorFn) => (...args: Parameters<EffectGeneratorFn>) => GeneratedEffect<ReturnType<EffectGeneratorFn>> = generatorFn => {
+  return fn(generatorFn.name)(generatorFn) as any;
 }
 
-type ModuleImplInstance<MaybeRequirements extends Maybe<Tag<any, any>[]> = None> = 
-  MaybeRequirements extends None ?
+type ModuleImplInstance<MaybeDependencies extends Maybe<Service<any, any>[]> = None> = 
+  MaybeDependencies extends None ?
     {}
     :
     {
-      readonly getDependency: <D extends ExtractVal<MaybeRequirements>[number]> (dependency: D) => D["Service"];
-      readonly dependencies: ExtractServices<ExtractVal<MaybeRequirements>>;
-      readonly context: e.Context.Context<ExtractRequirements<ExtractVal<MaybeRequirements>>>;
+      readonly getDependency: <Dependency extends ExtractMaybeVal<MaybeDependencies>[number]> (dependency: Dependency) => Dependency["Service"];
+      readonly dependencies: ExtractDependenciesObject<ExtractMaybeVal<MaybeDependencies>>;
+      readonly context: Context<ExtractContext<ExtractMaybeVal<MaybeDependencies>>>;
     }
 
-function getContext<Requirements extends readonly e.Context.Tag<any, any>[] = []>(requirements: Requirements, dependencies: ExtractServices<Requirements>): e.Context.Context<ExtractRequirements<Requirements>> {
-  let context = e.Context.empty();
-  for (const requirement of requirements) {
-    const impl = (dependencies as any)[requirement.key];
-    context = e.Context.add(requirement, impl)(context);
+function getContext<Dependencies extends readonly Service<any, any>[] = []>(dependencies: Dependencies, dependenciesObject: ExtractDependenciesObject<Dependencies>): Context<ExtractContext<Dependencies>> {
+  let context = emptyContext();
+  for (const dependency of dependencies) {
+    const impl = (dependenciesObject as any)[dependency.key];
+    context = context.pipe(addToContext(dependency, impl));
   }
   return context as any;
 }
@@ -50,7 +63,8 @@ function getContext<Requirements extends readonly e.Context.Tag<any, any>[] = []
 export enum EffectiveModulesErrorReason {
   ContextNotInitialized = "ContextNotInitialized",
   DependenciesNotInitialized = "DependenciesNotInitialized",
-  TryingToCreateLayerFromSuperclass = "TryingToCreateLayerFromSuperclass",
+  TryingToInstantiateSuperclass = "TryingToInstantiateSuperclass",
+  TryingToCreateModuleDependingOnItself = "TryingToCreateModuleDependingOnItself",
   CustomInitializerMissingDependencies = "CustomInitializedMissingDependencies",
   PassedNothingToUses = "PassedNothingToUses",
   PassedNonTagToUses = "PassedNonTagToUses",
@@ -59,175 +73,230 @@ export enum EffectiveModulesErrorReason {
 }
 
 export class EffectiveModulesError extends Error {
-  constructor(public readonly reason: EffectiveModulesErrorReason, private readonly reasonMessage: string) {
+  constructor(public readonly reason: EffectiveModulesErrorReason, reasonMessage: string) {
     super(`Module construction failure. ${reasonMessage}`);
   }
 }
 
-function createModule<ModuleService, Requirements extends readonly e.Context.Tag<any, any>[] = [], InitializerError = never>(module: e.Context.Tag<any, ModuleService>, requirements: Requirements, throwsSet: boolean = false) {
+function createModule<Interface, Dependencies extends readonly Service<any, any>[] = [], InitializerError = never>(module: Service<any, Interface>, dependencies: Dependencies, throwsSet: boolean = false) {
   return class Module {
-    private initializedContext: e.Option.Option<e.Context.Context<ExtractRequirements<Requirements>>> = e.Option.none();
-    get context (): e.Context.Context<ExtractRequirements<Requirements>> {
-      if (e.Option.isNone(this.initializedContext))
+    private initializedContext: Option<Context<ExtractContext<Dependencies>>> = none();
+    get context (): Context<ExtractContext<Dependencies>> {
+      if (dependencies.length === 0) return undefined as any;
+      if (isNone(this.initializedContext))
         throw new EffectiveModulesError(
           EffectiveModulesErrorReason.ContextNotInitialized,
           "Context not initialized. Initialization must be done via Layer construction."
         );
       return this.initializedContext.value;
     };
-    private initializedDependencies: e.Option.Option<ExtractServices<Requirements>> = e.Option.none();
-    get dependencies (): ExtractServices<Requirements> {
-      if (e.Option.isNone(this.initializedDependencies))
+    private initializedDependencies: Option<ExtractDependenciesObject<Dependencies>> = none();
+    get dependencies (): ExtractDependenciesObject<Dependencies> {
+      if (dependencies.length === 0) return undefined as any;
+      if (isNone(this.initializedDependencies))
         throw new EffectiveModulesError(
           EffectiveModulesErrorReason.DependenciesNotInitialized,
           "Dependencies not initialized. Initialization must be done via Layer construction."
         );
       else return this.initializedDependencies.value;
     }
-    constructor(private initializer?: () => GenEffect<ExtractServices<Requirements>, InitializerError, ExtractRequirements<Requirements>>) {
-      // TODO: ensure that superclass is not being directly instantiated.
-    }
-    static get Layer(): e.Layer.Layer<(typeof module)["Identifier"], InitializerError, ExtractRequirements<Requirements>> {
-      const self = this;
-      if (self === Module) {
+    get getDependency () {
+      if (dependencies.length === 0) return undefined;
+      if (isNone(this.initializedDependencies))
         throw new EffectiveModulesError(
-          EffectiveModulesErrorReason.TryingToCreateLayerFromSuperclass,
-          "You must extend the module superclass. You cannot initialize it directly."
+          EffectiveModulesErrorReason.DependenciesNotInitialized,
+          "Dependencies not initialized. Initialization must be done via Layer construction."
+        );
+      else {
+        return (dependency: Service<any, any>) => {
+          const toReturn =  (this.initializedDependencies as any).value[dependency.key];
+          return toReturn;
+        }
+      }
+    }
+    constructor(private initializer?: () => fn.Return<ExtractDependenciesObject<Dependencies>, InitializerError, ExtractContext<Dependencies>>) {
+      if (new.target === Module) {
+        throw new EffectiveModulesError(
+          EffectiveModulesErrorReason.TryingToInstantiateSuperclass,
+          `You must extend the module superclass. You cannot initialize it directly.`
         );
       }
-      return e.Layer.effect(module, e.Effect.gen(function*() {
+      // Auto bind
+      const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
+          .filter(prop => typeof (this as any)[prop] === 'function' && prop !== 'constructor');
+      for (const method of methods) {
+        (this as any)[method] = (this as any)[method].bind(this);
+      }
+    }
+    static get Layer(): Layer<(typeof module)["Identifier"], InitializerError, ExtractContext<Dependencies>> {
+      const self = this;
+      return layerFromEffect(module, gen(function*() {
         const instance = new self();
         if (instance.initializer) {
-          const dependencies = yield* instance.initializer();
-          if (requirements.length) {
+          const dependenciesObj = yield* instance.initializer();
+          if (dependencies.length) {
             // Validate dependencies
-            for (const requirement of requirements) {
-              if (!(requirement.key in dependencies)) {
+            for (const dependency of dependencies) {
+              if (!(dependency.key in dependenciesObj)) {
                 throw new EffectiveModulesError(
                   EffectiveModulesErrorReason.CustomInitializerMissingDependencies,
-                  `Module ${module.key} supposedly uses ${requirement.key}, but initializer provides no implementation for this`
+                  `Module ${module.key} supposedly uses ${dependency.key}, but initializer provides no implementation for this`
                 );
               }
             }
-            instance.initializedDependencies = e.Option.some(dependencies);
-            instance.initializedContext = e.Option.some(getContext(requirements, dependencies));
+            instance.initializedDependencies = some(dependenciesObj);
+            instance.initializedContext = some(getContext(dependencies, dependenciesObj));
           }
         } else {
-          if (requirements.length) {
-            const dependencies: ExtractServices<Requirements> = {} as any;
-            for (const requirement of requirements) {
-              (dependencies as any)[requirement.key] = yield* requirement;
+          if (dependencies.length) {
+            const dependenciesObj: ExtractDependenciesObject<Dependencies> = {} as any;
+            for (const requirement of dependencies) {
+              (dependenciesObj as any)[requirement.key] = yield* requirement;
             }
-            instance.initializedDependencies = e.Option.some(dependencies);
-            instance.initializedContext = e.Option.some(getContext(requirements, dependencies));
+            instance.initializedDependencies = some(dependenciesObj);
+            instance.initializedContext = some(getContext(dependencies, dependenciesObj));
           }
         }
         return instance as any;
       }));
     }
+    static mockLayer(partialImpl?: Partial<Interface>): Layer<(typeof module)["Identifier"], never, never> {
+      const impl: Interface = new Proxy(partialImpl ?? {}, {
+        get(target, prop, receiver) {
+          if (prop in receiver) {
+            return Reflect.get(target, prop, receiver);
+          }
+          return fn(function*() {
+            return yield* dieMessage(`Property ${prop.toString()} not implemented on mock for ${module.key}`);
+          });
+        }
+      }) as Interface;
+      return layerFromImpl(module, impl);
+    }
     static get Uses() {
-      if (!requirements.length) {
-        return (...requirements: e.Context.Tag<any, any>[]) => {
-          if (requirements.length === 0) {
+      if (!dependencies.length) {
+        return (...dependencies: Service<any, any>[]) => {
+          if (dependencies.length === 0) {
             throw new EffectiveModulesError(
               EffectiveModulesErrorReason.PassedNothingToUses,
               `Cannot pass 0 dependencies to Uses helper`
             )
           }
           // Ensure that each thing passed in as an actual context tag
-          for (const requirement of requirements) {
-            if (requirement._op !== "Tag") {
+          for (const dependency of dependencies) {
+            if (dependency.key === module.key) {
+              throw new EffectiveModulesError(
+                EffectiveModulesErrorReason.TryingToCreateModuleDependingOnItself,
+                `Trying to create module depending on itself: ${module.key}`
+              )
+            }
+            if (!isService(dependency)) {
               throw new EffectiveModulesError(
                 EffectiveModulesErrorReason.PassedNonTagToUses,
-                `Detected non-tag passed into Uses ${requirement.key}`
+                `Detected non-tag passed into Uses: ${dependency.key}`
               );
             }
           }
-          return createModule(module, requirements, throwsSet);
+          return createModule(module, dependencies, throwsSet);
         }
       }
     }
     static get Throws() {
       if (!throwsSet) {
         return () => {
-          return createModule(module, requirements, true);
+          return createModule(module, dependencies, true);
         }
       }
     }
   }
 }
 
-type ExtractVal<M extends Maybe<any>> = M extends Some<infer T> ? T : never;
+type ExtractMaybeVal<M extends Maybe<any>> = M extends Some<infer T> ? T : never;
 type None = {has: false};
 type Some<T> = {has: true; type: T};
 type Maybe<T> = None | Some<T>;
 
 type ModuleSuperClassConstructor<
-  Module extends e.Context.Tag<any, any>,
-  MaybeRequirements extends Maybe<e.Context.Tag<any, any>[]> = None,
+  Module extends Service<any, any>,
+  MaybeRequirements extends Maybe<Service<any, any>[]> = None,
   MaybeError extends Maybe<any> = None
 > = 
   (
     abstract new (initializer?: () => 
-      GenEffect<
+      fn.Return<
         MaybeRequirements extends None ?
-          void : ExtractServices<ExtractVal<MaybeRequirements>>,
+          void : ExtractDependenciesObject<ExtractMaybeVal<MaybeRequirements>>,
         MaybeError extends None ?
-          never : ExtractVal<MaybeError>, 
+          never : ExtractMaybeVal<MaybeError>, 
         MaybeRequirements extends None ?
-          never : ExtractRequirements<ExtractVal<MaybeRequirements>>
+          never : ExtractContext<ExtractMaybeVal<MaybeRequirements>>
       >
     ) => ModuleImplInstance<MaybeRequirements>
   ) &
   {
-    Layer: e.Layer.Layer<
+    Layer: Layer<
       Module["Identifier"],
       MaybeError extends None ?
-          never : ExtractVal<MaybeError>,
+        never : ExtractMaybeVal<MaybeError>,
       MaybeRequirements extends None ?
-          never : ExtractRequirements<ExtractVal<MaybeRequirements>>
+        never : ExtractContext<ExtractMaybeVal<MaybeRequirements>>
     >
-    // TODO: layerNoop method similar to https://effect.website/docs/platform/file-system/
+    /**
+     * Similar to Effect platform's [layerNoOp](https://effect.website/docs/platform/file-system/) method, where all
+     * members are methods which return a die by default unless overwritten by the provided partial impl.
+     * The layerNoOp for the platform services are hand-written whereas this method uses a Proxy for each member as
+     * the module shape cannot be known at runtime. The implementation provided by mockLayer assumes all instance members
+     * are functions which return an effect. If that's not the case make sure to explicitly mock that behavior.
+     * 
+     * @param partialImpl 
+     */
+    mockLayer(partialImpl?: Partial<Module["Service"]>): Layer<Module["Identifier"], never, never>
   }
 
 
 type ModuleSuperClass<
-  Module extends e.Context.Tag<any, any>,
-  MaybeRequirements extends Maybe<e.Context.Tag<any, any>[]> = None,
+  Module extends Service<any, any>,
+  MaybeDependencies extends Maybe<Service<any, any>[]> = None,
   MaybeError extends Maybe<any> = None
 > = 
-  ModuleSuperClassConstructor<Module, MaybeRequirements, MaybeError>
+  ModuleSuperClassConstructor<Module, MaybeDependencies, MaybeError>
   & (
-    MaybeRequirements extends None ?
+    MaybeDependencies extends None ?
       {
         Uses: <
-          FirstRequirement extends e.Context.Tag<any, any>,
-          OtherRequirements extends e.Context.Tag<any, any>[] = []
+          FirstDependency extends Service<any, any>,
+          OtherDependencies extends Service<any, any>[] = []
         >(
           // Require at least one dependency if Uses is invoked, also prevent inputs from being same as Module
-          firstReq: FirstRequirement & (FirstRequirement extends Module ? never : FirstRequirement),
-          ...otherReqs: {
-            [K in keyof OtherRequirements]: OtherRequirements[K] extends Module ? never : OtherRequirements[K]
+          first: FirstDependency & (FirstDependency extends Module ? never : FirstDependency),
+          ...others: {
+            [K in keyof OtherDependencies]: OtherDependencies[K] extends Module ? never : OtherDependencies[K]
           }
-        ) => ModuleSuperClass<Module, Some<[FirstRequirement, ...OtherRequirements]>, MaybeError>
+        ) => ModuleSuperClass<Module, Some<[FirstDependency, ...OtherDependencies]>, MaybeError>
       }
       :
       {}
   )
   & (
     MaybeError extends None ?
-      {Throws: <Error = never> () => ModuleSuperClass<Module, MaybeRequirements, Some<Error>>}
+      {Throws: <Error = never> () => ModuleSuperClass<Module, MaybeDependencies, Some<Error>>}
       :
       {}
   );
 
-export const Implementing: <Module extends e.Context.Tag<any, any>> (module: Module) => ModuleSuperClass<Module> = (module) => {
+export const Implementing: <Module extends Service<any, any>> (module: Module) => ModuleSuperClass<Module> = (module) => {
+  if (!isService(module)) {
+    throw new EffectiveModulesError(
+      EffectiveModulesErrorReason.PassedNonTagToImplementing,
+      `Detected non-tag passed into Implementing: ${module.key}`
+    );
+  }
   return createModule(module, []) as any;
 }
 
 type StringEnum<Enum extends string> = {[key in Enum]: key};
 
-export function interfaces<ModuleKeysEnum extends string>(moduleKeysEnum: StringEnum<ModuleKeysEnum>): <Interfaces extends {[moduleKey in ModuleKeysEnum]: any}>() => {[moduleKey in keyof Interfaces]: e.Context.Tag<moduleKey, Interfaces[moduleKey]>} {
+export function interfaces<ModuleKeysEnum extends string>(moduleKeysEnum: StringEnum<ModuleKeysEnum>): <Interfaces extends {[moduleKey in ModuleKeysEnum]: any}>() => {[moduleKey in keyof Interfaces]: Service<moduleKey, Interfaces[moduleKey]>} {
   // Verify input integrity
   for (const [k, v] of Object.entries(moduleKeysEnum)) {
     if (k !== v) {
@@ -239,6 +308,6 @@ export function interfaces<ModuleKeysEnum extends string>(moduleKeysEnum: String
   }
   return (() => {
     return Object.fromEntries(Object.keys(moduleKeysEnum)
-      .map(k => [k, e.Context.Tag(k)()]));
+      .map(k => [k, makeService(k)]));
   }) as any;
 }

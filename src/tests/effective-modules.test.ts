@@ -1,91 +1,383 @@
-import { EffectiveModulesError, EffectiveModulesErrorReason, Implementing, interfaces } from "../";
-import { gen, log, catchTag, fn, runPromiseExit, provide, type Effect } from "effect/Effect";
-import { replace, defaultLogger, make as makeLogger } from "effect/Logger";
-import { provideMerge } from "effect/Layer";
+import { EffectiveModulesError, EffectiveModulesErrorReason, effunct, Implementing, interfaces } from "../";
 import { Module, modules } from "./modules";
-import { layer } from "./modules/layer";
-import { FileSystem, layerNoop } from "@effect/platform/FileSystem";
-import { Match } from "effect"
 
-const program = gen(function*() {
-  yield* log("starting program");
-  const one = yield* modules.one;
-  yield* one.OtherThing("argtwo");
-}).pipe(
-  catchTag("PossibleError", fn(function*(err) {
-    yield* log("caught possible error from program", err.message);
-  }))
-)
-
-runPromiseExit(program.pipe(provide(layer))).then(exit => {
-  runPromiseExit(log("exit with", exit));
-})
-
-function layerWithLogToArray(logs: string[]) {
-  return replace(defaultLogger, makeLogger(({ message }) => {
-    logs.push(Array.isArray(message) ? message.map(String).join(" ") : String(message));
-  }));
-}
+import {
+  gen, log, fn,
+  runPromiseExit, provide, type Effect, provideService,
+  layerWithLogToArray,
+  provideMerge,
+  FileSystem, layerNoop,
+  value, tagsExhaustive, matchCause
+} from "./effect";
 
 import { expect, test } from "bun:test";
 import { TwoImpl } from "./modules/two/impl";
 import { ThreeImpl } from "./modules/three/impl";
+import { OneImpl } from "./modules/one/impl";
+import type { IOne } from "./modules/one/interface";
+import { PossibleError } from "./errors";
+import type { ITwo } from "./modules/two/interface";
 
 // Happy Path
 
-test("happy path", () => {
-  expect(2 + 2).toBe(4);
+test("happy path", async () => {
+  const logs: string[] = [];
+  await expectError(PossibleError, gen(function*() {
+    const two = yield* modules.two;
+    yield* two.FinalThing(true);
+    // Below should never be called
+    expect(1).toBe(2);
+  }).pipe(
+    provide(TwoImpl.Layer.pipe(
+      provideMerge(layerWithLogToArray(logs))
+    ))
+  ));
+  expect(logs).toEqual(["Final thing", "yielding possible error"]);
+
+  const logs2: string[] = [];
+  await expectNoIssue(gen(function*() {
+    const one = yield* modules.one;
+    yield* one.OtherThing("arg");
+  }).pipe(
+    provide(OneImpl.Layer.pipe(
+      provideMerge(TwoImpl.Layer),
+      provideMerge(ThreeImpl.Layer),
+      provideMerge(layerWithLogToArray(logs2))
+    ))
+  ));
+  expect(logs2).toEqual([
+    "Running initializer for module one",
+    "Three says world",
+    "confirming yield item",
+    "confirming yield item",
+    "OtherThing 5 5",
+    "do thing",
+    "yielded module two and three's world",
+    "Final thing",
+    "yielding possible error",
+    "DoThing caught & handled",
+    "got world",
+    "now directly call two",
+    "Final thing",
+    "Got final thing from two"
+  ]);
 });
 
-test("construction throws expected error", () => {})
-test("multiple uses and multiple throws is undefined", () => {})
-test("new base class created on each Implementing, Uses, Throws call", () => {})
-test("no context or dependencies when nothing passed to Uses", () => {})
-test("no implementation returned when passed a non dependency to getDependencies", () => {})
+test("construction throws expected error", async () => {
+  // Throws 
+  class TwoThrowsError extends Implementing(modules.two).Throws<PossibleError>() {
+    constructor() {
+      super(function*() {
+        yield* new PossibleError();
+      })
+    }
+  }
+  await expectError(PossibleError, gen(function*() {
+    const two = yield* modules.two;
+  }).pipe(
+    provide(TwoThrowsError.Layer)
+  ));
+  // No Throws
+  class TwoNoThrows extends Implementing(modules.two).Throws<PossibleError>() {
+    constructor() {
+      super(function*() {})
+    }
+  }
+  await expectNoIssue(gen(function*() {
+    const two = yield* modules.two;
+  }).pipe(
+    provide(TwoNoThrows.Layer)
+  ));
+})
+
+test("multiple uses and multiple throws is undefined", () => {
+  const secondThrows = (Implementing(modules.one).Uses(modules.two).Throws() as any).Throws;
+  const secondUses = (Implementing(modules.one).Uses(modules.two) as any).Uses;
+  expect(secondThrows).toBeUndefined();
+  expect(secondUses).toBeUndefined();
+})
+
+test("new base class created on each Implementing, Uses, Throws call", () => {
+  const baseClassOne = Implementing(modules.one);
+  const baseClassTwo = baseClassOne.Uses(modules.two);
+  const baseClassThree = baseClassTwo.Throws();
+  expect(baseClassOne).not.toBe(baseClassTwo);
+  expect(baseClassTwo).not.toBe(baseClassThree);
+  expect(baseClassThree).not.toBe(baseClassOne);
+  expect(baseClassOne).toBe(baseClassOne);
+  expect(baseClassTwo).toBe(baseClassTwo);
+  expect(baseClassThree).toBe(baseClassThree);
+})
+
+test("no context or dependencies when nothing passed to Uses", async () => {
+  // With Throws
+  class TwoWithThrows extends Implementing(modules.two).Throws<PossibleError>() implements ITwo {
+    *FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never> {
+      expect((this as any).dependencies).toBeUndefined();
+      expect((this as any).context).toBeUndefined();
+      expect((this as any).getDependencies).toBeUndefined();
+      return "hello world" 
+    }
+  }
+  await expectNoIssue(gen(function*() {
+    const two = yield* modules.two;
+    yield* two.FinalThing(false);
+  }).pipe(
+    provide(TwoWithThrows.Layer)
+  ));
+  // Without Throws
+  class TwoWithoutThrows extends Implementing(modules.two).Throws<PossibleError>() implements ITwo {
+    *FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never> {
+      expect((this as any).dependencies).toBeUndefined();
+      expect((this as any).context).toBeUndefined();
+      expect((this as any).getDependency).toBeUndefined();
+      return "hello world" 
+    }
+  }
+  await expectNoIssue(gen(function*() {
+    const two = yield* modules.two;
+    yield* two.FinalThing(false);
+  }).pipe(
+    provide(TwoWithoutThrows.Layer)
+  ));
+  // Is defined when Uses is present
+  class TwoWithUses extends Implementing(modules.two).Uses(FileSystem) implements ITwo {
+    *FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never> {
+      expect((this as any).dependencies).toBeDefined();
+      expect((this as any).context).toBeDefined();
+      expect((this as any).getDependency).toBeDefined();
+      return "hello world" 
+    }
+  }
+  await expectNoIssue(gen(function*() {
+    const two = yield* modules.two;
+    yield* two.FinalThing(false);
+  }).pipe(
+    provide(TwoWithUses.Layer.pipe(
+      provideMerge(layerNoop({}))
+    ))
+  ));
+})
+
+test("no implementation returned when passed a non dependency to getDependencies", async () => {
+  class OneImplTestGetDependency extends Implementing(modules.one).Uses(modules.two, FileSystem) implements IOne {
+    *DoThing(argOne: number): fn.Return<{ hello: "world"; }, never, Module.two> {
+      // Valid dependency
+      const twoFromYield = yield* modules.two;
+      const twoFromConstruction = this.getDependency(modules.two);
+      expect(twoFromYield).toBe(twoFromConstruction);
+      expect(twoFromConstruction).toBeDefined();
+      expect(twoFromConstruction.FinalThing).toBeDefined();
+      expect((twoFromConstruction as any).randomThing).toBeUndefined();
+      expect(this.getDependency(FileSystem)).toBeDefined();
+      expect(this.context).toBeDefined();
+      expect(this.dependencies).toBeDefined();
+      expect(this.dependencies.two).toBeDefined();
+      expect((this.dependencies as any)[FileSystem.key]).toBeDefined();
+      // Invalid dependency
+      expect(this.getDependency(modules.three as any)).toBeUndefined();
+      expect((this.dependencies as any)[modules.three.key]).toBeUndefined();
+      return {hello: "world"};
+    }
+    *OtherThing(argTwo: string): fn.Return<void, PossibleError> {}
+  }
+  await expectNoIssue(gen(function*() {
+    const one = yield* modules.one;
+    yield* one.DoThing(1);
+  }).pipe(
+    provide(
+      OneImplTestGetDependency.Layer.pipe(
+        provideMerge(TwoImpl.Layer),
+        provideMerge(layerNoop({}))
+      )
+    )
+  ));
+})
+
+test("mockLayer some methods defined some not", async () => {
+  // Off of implementing
+  const mockedOneDirectImplementing = Implementing(modules.one).mockLayer({
+    *DoThing(argOne) {
+      return {hello: 'world'};
+    }
+  });
+  const dieError = await expectDefect(Error, gen(function*() {
+    const one = yield* modules.one;
+    const two = yield* modules.two;
+    expect(one.OtherThing).toBeDefined();
+    expect(one.DoThing).toBeDefined();
+    const {hello} = yield* effunct(one.DoThing)(1).pipe(
+      provideService(modules.two, two)
+    );
+    expect(hello).toBe("world");
+    yield* one.OtherThing("");
+  }).pipe(
+    provide(mockedOneDirectImplementing.pipe(
+      provideMerge(TwoImpl.Layer),
+    ))
+  ));
+  expect(dieError.message).toBe(`Property OtherThing not implemented on mock for one`);
+
+  // Off of class
+  const mockedOneFromImpl = OneImpl.mockLayer({
+    *OtherThing(argTwo) {
+      yield* log(`Arg two is ${argTwo}`);
+    }
+  });
+
+  const logs: string[] = [];
+  const dieError2 = await expectDefect(Error, gen(function*() {
+    const one = yield* modules.one;
+    expect(one.DoThing).toBeDefined();
+    expect(one.OtherThing).toBeDefined();
+    yield* one.OtherThing("hi");
+    yield* one.DoThing(2);
+  }).pipe(
+    provide(
+      mockedOneFromImpl.pipe(
+        provideMerge(TwoImpl.Layer),
+        provideMerge(layerWithLogToArray(logs))
+      )
+    )
+  ));
+  expect(dieError2.message).toBe(`Property DoThing not implemented on mock for one`);
+  expect(logs).toEqual(["Arg two is hi"]);
+});
+
+function expectNoIssue(effect: Effect<void, any, never>): Promise<void> {
+  return runPromiseExit(effect).then(exit => {
+    const successOrExitReason = exit.pipe(
+      value,
+      tagsExhaustive({
+        Success: () => ({success: true}),
+        Failure: f => matchCause(f.cause, {
+          empty:     () => ({success: false, reason: "empty failure exit"}),
+          die:       defect => ({success: false, reason: `defect: ${defect}`}),
+          interrupt: () => ({success: false, reason: "interrupt failure exit"}),
+          fail:      error => ({success: false, reason: `error: ${error}`}),
+        }),
+      })
+    );
+    expect(successOrExitReason).toEqual({success: true});
+  });
+}
+
+function expectError<E extends Error>(CustomErrorClass: new (...args: any[]) => E, effect: Effect<void, E, never>): Promise<E> {
+  const err = runPromiseExit(effect).then(exit => {
+    const expectedErrorOrExitReason = exit.pipe(
+      value,
+      tagsExhaustive({
+        Success: () => "successful exit",
+        Failure: (f): E | string => matchCause(f.cause, {
+          empty:     () => "empty failure exit",
+          die:       defect => `defect: ${defect}`,
+          interrupt: () => "interrupt failure exit",
+          fail:      error => error as any,
+        }),
+      })
+    );
+    expect(expectedErrorOrExitReason).toBeInstanceOf(CustomErrorClass);
+    return expectedErrorOrExitReason as E;
+  });
+  return err;
+}
 
 // Expected failures
 
 function expectDefect<E extends Error>(CustomErrorClass: new (...args: any[]) => E, effect: Effect<void, any, never>): Promise<E> {
   const err = runPromiseExit(effect).then(exit => {
     const defectOrExitReason = exit.pipe(
-      Match.value,
-      Match.tagsExhaustive({
+      value,
+      tagsExhaustive({
         Success: () => "successful exit",
-        Failure: f => f.cause.pipe(
-          Match.value,
-          Match.tagsExhaustive({
-            Empty: () => "empty failure exit",
-            Die: defect => defect.defect,
-            Interrupt: () => "interrupt failure exit",
-            Fail: fail => `fail exit with expected error ${fail.error.name}`,
-            Sequential: () => "sequential failure exit",
-            Parallel: () => "parallel failure exit"
-          })
-        ),
+        Failure: f => matchCause(f.cause, {
+          empty:     () => "empty failure exit",
+          die:       defect => defect,
+          interrupt: () => "interrupt failure exit",
+          fail:      error => `fail exit with expected error ${(error as any).name}`,
+        }),
       })
-    )
+    );
     expect(defectOrExitReason).toBeInstanceOf(CustomErrorClass);
     return defectOrExitReason as E;
   });
   return err;
 }
 
-test("failure when instantiating superclass directly", () => {
-  // 1. Test direct instantiation (might not be possible)
+test("failure when instantiating superclass directly", async () => {
+  // 1. Test direct instantiation
+  const errDirectInstance = await expectDefect(EffectiveModulesError, gen(function*() {
+    const Module = Implementing(modules.one).Uses(modules.two);
+    new (Module as any)();
+  }));
+  expect(errDirectInstance.reason).toBe(EffectiveModulesErrorReason.TryingToInstantiateSuperclass);
   // 2. Test Layer instantiation
-
-})
-
-test("failure when no Uses args", () => {})
-test("failure when Uses arg is same as module", () => {})
-test("failure when accessing context and dependencies within constructor", () => {})
-
-test("failure when uses arg is not a module", () => {
-
+  const errLayer = await expectDefect(EffectiveModulesError, gen(function*() {
+    yield* modules.one;
+  }).pipe(provide(Implementing(modules.one).Throws().Layer)));
+  expect(errLayer.reason).toBe(EffectiveModulesErrorReason.TryingToInstantiateSuperclass);
 });
 
-test("failure when implementing arg not a module", () => {
+test("failure when no Uses args", async () => {
+  const err = await expectDefect(EffectiveModulesError, gen(function*() {
+    (Implementing(modules.one).Uses as any)();
+  }));
+  expect(err.reason).toBe(EffectiveModulesErrorReason.PassedNothingToUses);
+});
 
+test("failure when Uses arg is same as module", async () => {
+  const err = await expectDefect(EffectiveModulesError, gen(function*() {
+    Implementing(modules.one).Uses(modules.one as any);
+  }));
+  expect(err.reason).toBe(EffectiveModulesErrorReason.TryingToCreateModuleDependingOnItself);
+});
+
+test("failure when accessing context and dependencies within constructor", async () => {
+  // Accessing dependencies in constructor
+  class OneImplImproperAccessDependencies extends Implementing(modules.one).Uses(modules.two) {
+    constructor() {
+      super();
+      this.dependencies;
+    }
+  }
+  const errDependencies = await expectDefect(EffectiveModulesError, gen(function*() {
+    yield* modules.one;
+  }).pipe(
+    provide(OneImplImproperAccessDependencies.Layer.pipe(
+      provideMerge(TwoImpl.Layer)
+    ))
+  ));
+  expect(errDependencies.reason).toBe(EffectiveModulesErrorReason.DependenciesNotInitialized);
+  
+  // Accessing context in constructor
+  class OneImplImproperAccessContext extends Implementing(modules.one).Uses(modules.two) {
+    constructor() {
+      super();
+      this.context;
+    }
+  }
+  const errContext = await expectDefect(EffectiveModulesError, gen(function*() {
+    yield* modules.one;
+  }).pipe(
+    provide(OneImplImproperAccessContext.Layer.pipe(
+      provideMerge(TwoImpl.Layer)
+    ))
+  ));
+  expect(errContext.reason).toBe(EffectiveModulesErrorReason.ContextNotInitialized);
+});
+
+test("failure when uses arg is not a module", async () => {
+  const err = await expectDefect(EffectiveModulesError, gen(function*() {
+    Implementing(modules.one).Uses(modules.two, {} as any, modules.three);
+  }));
+  expect(err.reason).toBe(EffectiveModulesErrorReason.PassedNonTagToUses);
+});
+
+test("failure when implementing arg not a module", async () => {
+  const err = await expectDefect(EffectiveModulesError, gen(function*() {
+    Implementing({} as any);
+  }));
+  expect(err.reason).toBe(EffectiveModulesErrorReason.PassedNonTagToImplementing);
 });
 
 test("failure when custom instantiation is not returning all required dependencies", async () => {

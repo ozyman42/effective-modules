@@ -1,6 +1,6 @@
 import { PossibleError } from "../../errors";
-import { type GenEffect } from "../../../";
+import { type fn } from "../../effect";
 
 export interface ITwo {
-  FinalThing(shouldError: boolean): GenEffect<string, PossibleError, never>
+  FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never>
 }

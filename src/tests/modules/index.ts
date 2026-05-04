@@ -1,4 +1,4 @@
-import { interfaces } from "../..";
+import { interfaces } from "../../";
 import type { IOne } from "./one/interface";
 import type { IThree } from "./three/interface";
 import type { ITwo } from "./two/interface";

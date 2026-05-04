@@ -1,0 +1,4 @@
+pre-commit:
+  commands:
+    check-effective-modules-version:
+      run: bun src/scripts/check-npm-version.ts

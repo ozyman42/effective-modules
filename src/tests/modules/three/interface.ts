@@ -1,5 +1,5 @@
-import { type GenEffect } from "../../../"
+import { type fn } from "../../effect";
 
 export interface IThree {
-  hello(): GenEffect<"world">;
+  hello(): fn.Return<"world">;
 }
