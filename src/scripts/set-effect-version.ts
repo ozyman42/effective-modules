@@ -5,16 +5,22 @@ export async function setEffectVersion(version: "3" | "4") {
   const other = version === "3" ? "4" : "3";
 
   const effectPkg = await Bun.file(`node_modules/effect-${version}/package.json`).json();
+
   const pkg = await Bun.file("package.json").json();
   pkg.peerDependencies.effect = `^${effectPkg.version}`;
   await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\n");
+
+  const tsconfig = await Bun.file("tsconfig.json").json();
+  tsconfig.compilerOptions.paths = { "effect/*": [`./node_modules/effect-${version}/*`] };
+  await Bun.write("tsconfig.json", JSON.stringify(tsconfig, null, 2) + "\n");
+
+  await Bun.write("src/effect/index.ts", `export * from "./v${version}";\n`);
+  await Bun.write("src/tests/effect/index.ts", `export * from "./v${version}";\n`);
+
   await Bun.spawn(["bun", "install"], { stdout: "inherit", stderr: "inherit" }).exited;
 
   rmSync(".build-temp", { recursive: true, force: true });
   cpSync("src", ".build-temp", { recursive: true });
-
-  await Bun.write(".build-temp/effect/index.ts", `export * from "./v${version}";\n`);
-  await Bun.write(".build-temp/tests/effect/index.ts", `export * from "./v${version}";\n`);
 
   rmSync(`.build-temp/effect/v${other}.ts`);
   rmSync(`.build-temp/tests/effect/v${other}.ts`);

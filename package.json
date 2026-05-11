@@ -23,14 +23,17 @@
   "devDependencies": {
     "@effect/platform": "^0.96.1",
     "@types/bun": "latest",
+    "lefthook": "latest",
     "typescript": "^5",
     "effect-4": "npm:effect@^4.0.0-beta.0",
     "effect-3": "npm:effect@^3.21.2"
   },
   "peerDependencies": {
-    "effect": "^4.0.0-beta.64"
+    "effect": "^3.21.2"
   },
   "scripts": {
+    "prepare": "lefthook install",
+    "set-effect-version": "bun src/scripts/set-effect-version.ts",
     "build-and-test-3": "bun src/scripts/build-and-test.ts 3",
     "build-and-test-4": "bun src/scripts/build-and-test.ts 4"
   }
