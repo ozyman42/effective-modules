@@ -296,7 +296,7 @@ export const Implementing: <Module extends Service<any, any>> (module: Module) =
 
 type StringEnum<Enum extends string> = {[key in Enum]: key};
 
-export function interfaces<ModuleKeysEnum extends string>(moduleKeysEnum: StringEnum<ModuleKeysEnum>): <Interfaces extends {[moduleKey in ModuleKeysEnum]: any}>() => {[moduleKey in keyof Interfaces]: Service<moduleKey, Interfaces[moduleKey]>} {
+export function interfaces<ModuleKeysEnum extends string, Interfaces extends {[moduleKey in ModuleKeysEnum]: any}>(moduleKeysEnum: StringEnum<ModuleKeysEnum>): {[moduleKey in ModuleKeysEnum]: Service<moduleKey, Interfaces[moduleKey]>} {
   // Verify input integrity
   for (const [k, v] of Object.entries(moduleKeysEnum)) {
     if (k !== v) {
@@ -306,8 +306,6 @@ export function interfaces<ModuleKeysEnum extends string>(moduleKeysEnum: String
       );
     }
   }
-  return (() => {
-    return Object.fromEntries(Object.keys(moduleKeysEnum)
-      .map(k => [k, makeService(k)]));
-  }) as any;
+  return Object.fromEntries(Object.keys(moduleKeysEnum)
+    .map(k => [k, makeService(k)])) as any;
 }

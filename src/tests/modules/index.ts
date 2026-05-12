@@ -9,8 +9,8 @@ export enum Module {
   three = "three"
 }
 
-export const modules = interfaces(Module)<{
-  [Module.one]: IOne,
+export const modules = interfaces<Module, {
+  one: IOne,
   [Module.two]: ITwo,
   [Module.three]: IThree
-}>()
+}>(Module);

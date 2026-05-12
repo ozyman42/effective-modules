@@ -1,6 +1,6 @@
 {
   "name": "effective-modules",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Effect module class infrastructure",
   "type": "module",
   "main": "dist/index.js",
