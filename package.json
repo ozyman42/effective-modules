@@ -1,6 +1,6 @@
 {
   "name": "effective-modules",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Effect module class infrastructure",
   "type": "module",
   "main": "dist/index.js",
@@ -29,7 +29,7 @@
     "effect-3": "npm:effect@^3.21.2"
   },
   "peerDependencies": {
-    "effect": "^3.21.2"
+    "effect": "^4.0.0-beta.64"
   },
   "scripts": {
     "prepare": "lefthook install",

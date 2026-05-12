@@ -1,14 +1,14 @@
 import { log, catchTag, succeed, provide, fn } from "../../effect";
-import { Implementing, effunct } from "../../../";
+import { implementing, effunct, type Initialize } from "../../../";
 import { modules, Module } from "../";
 import { OtherError, PossibleError } from "../../errors";
 import { type IOne } from "./interface";
 
-export class OneImpl extends Implementing(modules.one).Uses(modules.two, modules.three).Throws<OtherError>() implements IOne {
+export class OneImpl extends implementing(modules.one).uses(modules.two, modules.three).throws<OtherError>() implements IOne {
   private testInstanceVar = 5;
 
   constructor() {
-    super(function*() {
+    super(function*(): Initialize<typeof OneImpl> {
       yield* log("Running initializer for module one");
       const three = yield* modules.three;
       yield* log(`Three says ${yield* three.hello()}`);

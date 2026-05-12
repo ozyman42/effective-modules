@@ -1,4 +1,4 @@
-import { EffectiveModulesError, EffectiveModulesErrorReason, effunct, Implementing, interfaces } from "../";
+import { EffectiveModulesError, EffectiveModulesErrorReason, effunct, implementing, interfaces } from "../";
 import { Module, modules } from "./modules";
 
 import {
@@ -65,7 +65,7 @@ test("happy path", async () => {
 
 test("construction throws expected error", async () => {
   // Throws 
-  class TwoThrowsError extends Implementing(modules.two).Throws<PossibleError>() {
+  class TwoThrowsError extends implementing(modules.two).throws<PossibleError>() {
     constructor() {
       super(function*() {
         yield* new PossibleError();
@@ -78,7 +78,7 @@ test("construction throws expected error", async () => {
     provide(TwoThrowsError.Layer)
   ));
   // No Throws
-  class TwoNoThrows extends Implementing(modules.two).Throws<PossibleError>() {
+  class TwoNoThrows extends implementing(modules.two).throws<PossibleError>() {
     constructor() {
       super(function*() {})
     }
@@ -91,16 +91,16 @@ test("construction throws expected error", async () => {
 })
 
 test("multiple uses and multiple throws is undefined", () => {
-  const secondThrows = (Implementing(modules.one).Uses(modules.two).Throws() as any).Throws;
-  const secondUses = (Implementing(modules.one).Uses(modules.two) as any).Uses;
+  const secondThrows = (implementing(modules.one).uses(modules.two).throws() as any).throws;
+  const secondUses = (implementing(modules.one).uses(modules.two) as any).uses;
   expect(secondThrows).toBeUndefined();
   expect(secondUses).toBeUndefined();
 })
 
-test("new base class created on each Implementing, Uses, Throws call", () => {
-  const baseClassOne = Implementing(modules.one);
-  const baseClassTwo = baseClassOne.Uses(modules.two);
-  const baseClassThree = baseClassTwo.Throws();
+test("new base class created on each implementing, uses, throws call", () => {
+  const baseClassOne = implementing(modules.one);
+  const baseClassTwo = baseClassOne.uses(modules.two);
+  const baseClassThree = baseClassTwo.throws();
   expect(baseClassOne).not.toBe(baseClassTwo);
   expect(baseClassTwo).not.toBe(baseClassThree);
   expect(baseClassThree).not.toBe(baseClassOne);
@@ -109,9 +109,9 @@ test("new base class created on each Implementing, Uses, Throws call", () => {
   expect(baseClassThree).toBe(baseClassThree);
 })
 
-test("no context or dependencies when nothing passed to Uses", async () => {
+test("no context or dependencies when nothing passed to uses", async () => {
   // With Throws
-  class TwoWithThrows extends Implementing(modules.two).Throws<PossibleError>() implements ITwo {
+  class TwoWithThrows extends implementing(modules.two).throws<PossibleError>() implements ITwo {
     *FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never> {
       expect((this as any).dependencies).toBeUndefined();
       expect((this as any).context).toBeUndefined();
@@ -126,7 +126,7 @@ test("no context or dependencies when nothing passed to Uses", async () => {
     provide(TwoWithThrows.Layer)
   ));
   // Without Throws
-  class TwoWithoutThrows extends Implementing(modules.two).Throws<PossibleError>() implements ITwo {
+  class TwoWithoutThrows extends implementing(modules.two).throws<PossibleError>() implements ITwo {
     *FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never> {
       expect((this as any).dependencies).toBeUndefined();
       expect((this as any).context).toBeUndefined();
@@ -140,8 +140,8 @@ test("no context or dependencies when nothing passed to Uses", async () => {
   }).pipe(
     provide(TwoWithoutThrows.Layer)
   ));
-  // Is defined when Uses is present
-  class TwoWithUses extends Implementing(modules.two).Uses(FileSystem) implements ITwo {
+  // Is defined when uses is present
+  class TwoWithUses extends implementing(modules.two).uses(FileSystem) implements ITwo {
     *FinalThing(shouldError: boolean): fn.Return<string, PossibleError, never> {
       expect((this as any).dependencies).toBeDefined();
       expect((this as any).context).toBeDefined();
@@ -160,7 +160,7 @@ test("no context or dependencies when nothing passed to Uses", async () => {
 })
 
 test("no implementation returned when passed a non dependency to getDependencies", async () => {
-  class OneImplTestGetDependency extends Implementing(modules.one).Uses(modules.two, FileSystem) implements IOne {
+  class OneImplTestGetDependency extends implementing(modules.one).uses(modules.two, FileSystem) implements IOne {
     *DoThing(argOne: number): fn.Return<{ hello: "world"; }, never, Module.two> {
       // Valid dependency
       const twoFromYield = yield* modules.two;
@@ -196,7 +196,7 @@ test("no implementation returned when passed a non dependency to getDependencies
 
 test("mockLayer some methods defined some not", async () => {
   // Off of implementing
-  const mockedOneDirectImplementing = Implementing(modules.one).mockLayer({
+  const mockedOneDirectImplementing = implementing(modules.one).mockLayer({
     *DoThing(argOne) {
       return {hello: 'world'};
     }
@@ -307,34 +307,34 @@ function expectDefect<E extends Error>(CustomErrorClass: new (...args: any[]) =>
 test("failure when instantiating superclass directly", async () => {
   // 1. Test direct instantiation
   const errDirectInstance = await expectDefect(EffectiveModulesError, gen(function*() {
-    const Module = Implementing(modules.one).Uses(modules.two);
+    const Module = implementing(modules.one).uses(modules.two);
     new (Module as any)();
   }));
   expect(errDirectInstance.reason).toBe(EffectiveModulesErrorReason.TryingToInstantiateSuperclass);
   // 2. Test Layer instantiation
   const errLayer = await expectDefect(EffectiveModulesError, gen(function*() {
     yield* modules.one;
-  }).pipe(provide(Implementing(modules.one).Throws().Layer)));
+  }).pipe(provide(implementing(modules.one).throws().Layer)));
   expect(errLayer.reason).toBe(EffectiveModulesErrorReason.TryingToInstantiateSuperclass);
 });
 
-test("failure when no Uses args", async () => {
+test("failure when no uses args", async () => {
   const err = await expectDefect(EffectiveModulesError, gen(function*() {
-    (Implementing(modules.one).Uses as any)();
+    (implementing(modules.one).uses as any)();
   }));
   expect(err.reason).toBe(EffectiveModulesErrorReason.PassedNothingToUses);
 });
 
-test("failure when Uses arg is same as module", async () => {
+test("failure when uses arg is same as module", async () => {
   const err = await expectDefect(EffectiveModulesError, gen(function*() {
-    Implementing(modules.one).Uses(modules.one as any);
+    implementing(modules.one).uses(modules.one as any);
   }));
   expect(err.reason).toBe(EffectiveModulesErrorReason.TryingToCreateModuleDependingOnItself);
 });
 
 test("failure when accessing context and dependencies within constructor", async () => {
   // Accessing dependencies in constructor
-  class OneImplImproperAccessDependencies extends Implementing(modules.one).Uses(modules.two) {
+  class OneImplImproperAccessDependencies extends implementing(modules.one).uses(modules.two) {
     constructor() {
       super();
       this.dependencies;
@@ -350,7 +350,7 @@ test("failure when accessing context and dependencies within constructor", async
   expect(errDependencies.reason).toBe(EffectiveModulesErrorReason.DependenciesNotInitialized);
   
   // Accessing context in constructor
-  class OneImplImproperAccessContext extends Implementing(modules.one).Uses(modules.two) {
+  class OneImplImproperAccessContext extends implementing(modules.one).uses(modules.two) {
     constructor() {
       super();
       this.context;
@@ -368,20 +368,20 @@ test("failure when accessing context and dependencies within constructor", async
 
 test("failure when uses arg is not a module", async () => {
   const err = await expectDefect(EffectiveModulesError, gen(function*() {
-    Implementing(modules.one).Uses(modules.two, {} as any, modules.three);
+    implementing(modules.one).uses(modules.two, {} as any, modules.three);
   }));
   expect(err.reason).toBe(EffectiveModulesErrorReason.PassedNonTagToUses);
 });
 
 test("failure when implementing arg not a module", async () => {
   const err = await expectDefect(EffectiveModulesError, gen(function*() {
-    Implementing({} as any);
+    implementing({} as any);
   }));
   expect(err.reason).toBe(EffectiveModulesErrorReason.PassedNonTagToImplementing);
 });
 
 test("failure when custom instantiation is not returning all required dependencies", async () => {
-  class OneImplMissingAllDeps extends Implementing(modules.one).Uses(modules.two) {
+  class OneImplMissingAllDeps extends implementing(modules.one).uses(modules.two) {
     constructor() {
       super(function*() {
         return {} as any;
@@ -399,7 +399,7 @@ test("failure when custom instantiation is not returning all required dependenci
   ));
   expect(oneMissingAllDepsError.reason).toBe(EffectiveModulesErrorReason.CustomInitializerMissingDependencies);
   // Test a non custom module as well, like FS for example
-  class OneImplMissingOneDep extends Implementing(modules.one).Uses(modules.two, FileSystem) {
+  class OneImplMissingOneDep extends implementing(modules.one).uses(modules.two, FileSystem) {
     constructor() {
       super(function*() {
         const two = yield* modules.two;

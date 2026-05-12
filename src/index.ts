@@ -173,13 +173,13 @@ function createModule<Interface, Dependencies extends readonly Service<any, any>
       }) as Interface;
       return layerFromImpl(module, impl);
     }
-    static get Uses() {
+    static get uses() {
       if (!dependencies.length) {
         return (...dependencies: Service<any, any>[]) => {
           if (dependencies.length === 0) {
             throw new EffectiveModulesError(
               EffectiveModulesErrorReason.PassedNothingToUses,
-              `Cannot pass 0 dependencies to Uses helper`
+              `Cannot pass 0 dependencies to uses helper`
             )
           }
           // Ensure that each thing passed in as an actual context tag
@@ -193,7 +193,7 @@ function createModule<Interface, Dependencies extends readonly Service<any, any>
             if (!isService(dependency)) {
               throw new EffectiveModulesError(
                 EffectiveModulesErrorReason.PassedNonTagToUses,
-                `Detected non-tag passed into Uses: ${dependency.key}`
+                `Detected non-tag passed into uses: ${dependency.key}`
               );
             }
           }
@@ -201,7 +201,7 @@ function createModule<Interface, Dependencies extends readonly Service<any, any>
         }
       }
     }
-    static get Throws() {
+    static get throws() {
       if (!throwsSet) {
         return () => {
           return createModule(module, dependencies, true);
@@ -216,21 +216,26 @@ type None = {has: false};
 type Some<T> = {has: true; type: T};
 type Maybe<T> = None | Some<T>;
 
+type CustomInitializerReturn<
+  MaybeRequirements extends Maybe<Service<any, any>[]> = None,
+  MaybeError extends Maybe<any> = None
+> = fn.Return<
+  MaybeRequirements extends None ?
+    void : ExtractDependenciesObject<ExtractMaybeVal<MaybeRequirements>>,
+  MaybeError extends None ?
+    never : ExtractMaybeVal<MaybeError>, 
+  MaybeRequirements extends None ?
+    never : ExtractContext<ExtractMaybeVal<MaybeRequirements>>
+>;
+
 type ModuleSuperClassConstructor<
   Module extends Service<any, any>,
   MaybeRequirements extends Maybe<Service<any, any>[]> = None,
   MaybeError extends Maybe<any> = None
 > = 
   (
-    abstract new (initializer?: () => 
-      fn.Return<
-        MaybeRequirements extends None ?
-          void : ExtractDependenciesObject<ExtractMaybeVal<MaybeRequirements>>,
-        MaybeError extends None ?
-          never : ExtractMaybeVal<MaybeError>, 
-        MaybeRequirements extends None ?
-          never : ExtractContext<ExtractMaybeVal<MaybeRequirements>>
-      >
+    abstract new (
+      initializer?: () => CustomInitializerReturn<MaybeRequirements, MaybeError>
     ) => ModuleImplInstance<MaybeRequirements>
   ) &
   {
@@ -263,11 +268,11 @@ type ModuleSuperClass<
   & (
     MaybeDependencies extends None ?
       {
-        Uses: <
+        uses: <
           FirstDependency extends Service<any, any>,
           OtherDependencies extends Service<any, any>[] = []
         >(
-          // Require at least one dependency if Uses is invoked, also prevent inputs from being same as Module
+          // Require at least one dependency if uses is invoked, also prevent inputs from being same as Module
           first: FirstDependency & (FirstDependency extends Module ? never : FirstDependency),
           ...others: {
             [K in keyof OtherDependencies]: OtherDependencies[K] extends Module ? never : OtherDependencies[K]
@@ -279,12 +284,12 @@ type ModuleSuperClass<
   )
   & (
     MaybeError extends None ?
-      {Throws: <Error = never> () => ModuleSuperClass<Module, MaybeDependencies, Some<Error>>}
+      {throws: <Error = never> () => ModuleSuperClass<Module, MaybeDependencies, Some<Error>>}
       :
       {}
   );
 
-export const Implementing: <Module extends Service<any, any>> (module: Module) => ModuleSuperClass<Module> = (module) => {
+export const implementing: <Module extends Service<any, any>> (module: Module) => ModuleSuperClass<Module> = (module) => {
   if (!isService(module)) {
     throw new EffectiveModulesError(
       EffectiveModulesErrorReason.PassedNonTagToImplementing,
@@ -309,3 +314,12 @@ export function interfaces<ModuleKeysEnum extends string, Interfaces extends {[m
   return Object.fromEntries(Object.keys(moduleKeysEnum)
     .map(k => [k, makeService(k)])) as any;
 }
+
+export type Initialize<Module extends {Layer: Layer<any, any, any>, new(): {} | {dependencies: any}}> =
+  Module["Layer"] extends Layer<any, infer Error, infer Requirements> ?
+    InstanceType<Module> extends {dependencies: any} ?
+      fn.Return<InstanceType<Module>["dependencies"], Error, Requirements> :
+      fn.Return<void, Error, Requirements> :
+    never;
+
+export type EffectGen<A, E, R> = fn.Return<A, E, R>;

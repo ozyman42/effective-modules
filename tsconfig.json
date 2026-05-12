@@ -30,7 +30,7 @@
     ],
     "paths": {
       "effect/*": [
-        "./node_modules/effect-3/*"
+        "./node_modules/effect-4/*"
       ]
     }
   },

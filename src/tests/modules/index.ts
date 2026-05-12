@@ -14,3 +14,4 @@ export const modules = interfaces<Module, {
   [Module.two]: ITwo,
   [Module.three]: IThree
 }>(Module);
+
