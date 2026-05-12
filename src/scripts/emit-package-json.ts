@@ -7,6 +7,7 @@ export async function emitPackageJson() {
     version,
     description: pkg.description,
     repository: pkg.repository,
+    license: pkg.license,
     peerDependencies: { effect: pkg.peerDependencies.effect },
     type: "module",
     main: "index.js",

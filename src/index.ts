@@ -322,4 +322,4 @@ export type Initialize<Module extends {Layer: Layer<any, any, any>, new(): {} | 
       fn.Return<void, Error, Requirements> :
     never;
 
-export type EffectGen<A, E, R> = fn.Return<A, E, R>;
+export type EffectGen<A, E = never, R = never> = fn.Return<A, E, R>;
