@@ -6,6 +6,7 @@ export { TaggedError } from "effect-3/Data";
 
 import { replace, defaultLogger, make as makeLogger } from "effect-3/Logger";
 import type { Cause } from "effect-3/Cause";
+import { type TagClass, Tag } from "effect-3/Context";
 
 export function layerWithLogToArray(logs: string[]) {
   return replace(defaultLogger, makeLogger(({ message }) => {
@@ -27,4 +28,8 @@ export function matchCause<E, R>(cause: Cause<E>, handlers: {
     case "Sequential":
     case "Parallel":  return matchCause(cause.left, handlers);
   }
+}
+
+export function ServiceClass<Self, Id extends string, Interface>(id: Id): TagClass<Self, Id, Interface> {
+  return Tag(id)<Self, Interface>();
 }

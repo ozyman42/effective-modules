@@ -1,8 +1,8 @@
 import { PossibleError } from "../../errors";
-import { Module } from "../";
 import { type fn } from "../../effect";
+import type { Two } from "../two/interface";
 
 export interface IOne {
-  DoThing(argOne: number): fn.Return<{hello: "world"}, never, Module.two>;
+  DoThing(argOne: number): fn.Return<{hello: "world"}, never, Two>;
   OtherThing(argTwo: string): fn.Return<void, PossibleError>;
 }

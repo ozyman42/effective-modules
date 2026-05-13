@@ -32,6 +32,37 @@ export async function setEffectVersion(version: "3" | "4") {
     const updated = content.replaceAll(`from "effect-${version}`, `from "effect`);
     if (updated !== content) await Bun.write(path, updated);
   }
+
+  await Bun.write(".build-temp/tsconfig.json", JSON.stringify({
+    compilerOptions: {
+      lib: ["ESNext"],
+      target: "ESNext",
+      module: "Preserve",
+      moduleDetection: "force",
+      allowJs: true,
+      moduleResolution: "bundler",
+      verbatimModuleSyntax: true,
+      strict: true,
+      skipLibCheck: true,
+      noFallthroughCasesInSwitch: true,
+      noUncheckedIndexedAccess: true,
+      noImplicitOverride: true,
+      noUnusedLocals: false,
+      noUnusedParameters: false,
+      noPropertyAccessFromIndexSignature: false,
+      outDir: "../dist",
+      declaration: true,
+      declarationDir: "../dist/types",
+      declarationMap: true,
+      inlineSources: true,
+      sourceMap: true,
+      jsx: "react-jsx",
+      types: ["bun"],
+      paths: { "effect/*": [`../node_modules/effect-${version}/*`] },
+    },
+    include: ["**/*"],
+    exclude: ["tests", "scripts"],
+  }, null, 2) + "\n");
 }
 
 if (import.meta.main) {

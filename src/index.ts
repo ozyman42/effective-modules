@@ -17,7 +17,8 @@ import {
   type Option,
   none,
   isNone,
-  some
+  some,
+  type ServiceClass
 } from "./effect";
 
 type ExtractDependenciesObject<Services extends readonly Service<any, any>[]> =
@@ -27,7 +28,10 @@ type ExtractDependenciesObject<Services extends readonly Service<any, any>[]> =
         [K in keyof Services]:
           Services[K] extends Service<infer Id extends string, infer Interface>
             ? { readonly [P in Id]: Interface }
-          :
+            :
+          Services[K] extends ServiceClass<infer Self, infer Id, infer Interface>
+            ? { readonly [P in Id]: Interface }
+            :
           never
       }[number]>>;
 
@@ -323,3 +327,4 @@ export type Initialize<Module extends {Layer: Layer<any, any, any>, new(): {} | 
     never;
 
 export type EffectGen<A, E = never, R = never> = fn.Return<A, E, R>;
+

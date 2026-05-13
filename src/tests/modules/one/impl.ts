@@ -3,8 +3,9 @@ import { implementing, effunct, type Initialize } from "../../../";
 import { modules, Module } from "../";
 import { OtherError, PossibleError } from "../../errors";
 import { type IOne } from "./interface";
+import { Two } from "../two/interface";
 
-export class OneImpl extends implementing(modules.one).uses(modules.two, modules.three).throws<OtherError>() implements IOne {
+export class OneImpl extends implementing(modules.one).uses(Two, modules.three).throws<OtherError>() implements IOne {
   private testInstanceVar = 5;
 
   constructor() {
@@ -13,15 +14,15 @@ export class OneImpl extends implementing(modules.one).uses(modules.two, modules
       const three = yield* modules.three;
       yield* log(`Three says ${yield* three.hello()}`);
       return {
-        two: yield* modules.two,
+        TWO: yield* Two,
         three
       }
     });
   }
 
-  *DoThing(argOne: number): fn.Return<{ hello: "world"; }, never, Module.two> {
+  *DoThing(argOne: number): fn.Return<{ hello: "world"; }, never, Two> {
     yield* log("do thing");
-    const two = yield* modules.two;
+    const two = yield* Two;
     const three = this.getDependency(modules.three);
     yield* log("yielded module two", `and three's ${yield* three.hello()}`);
     const result = yield* effunct(two.FinalThing)(true).pipe(
@@ -37,7 +38,7 @@ export class OneImpl extends implementing(modules.one).uses(modules.two, modules
     const {hello} = yield* effunct(this.DoThing)(item).pipe(provide(this.context));
     yield* log(`got ${hello}`);
     yield* log("now directly call two");
-    const result = yield* this.dependencies.two.FinalThing(false);
+    const result = yield* this.dependencies.TWO.FinalThing(false);
     yield* log(`Got ${result} from two`);
   }
 

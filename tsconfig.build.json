@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "noEmit": false,
-    "allowImportingTsExtensions": false
-  },
-  "include": [".build-temp/**/*"],
-  "exclude": ["node_modules", "dist", ".build-temp/tests", ".build-temp/scripts"]
-}

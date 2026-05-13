@@ -1,5 +1,5 @@
 export { type Effect, fn, gen } from "effect-4/Effect";
-export { type Service, type Context, empty as emptyContext, add as addToContext } from "effect-4/Context";
+export { type Service, type Context, empty as emptyContext, add as addToContext, type ServiceClass } from "effect-4/Context";
 export { type UnionToIntersection, type Simplify } from "effect-4/Types";
 export { type Layer, effect as layerFromEffect, succeed as layerFromImpl } from "effect-4/Layer";
 export { type Option, none, isNone, some } from "effect-4/Option";

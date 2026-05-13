@@ -23,19 +23,23 @@ jobs:
         run: bun install
 
       - name: Build and test (effect v3)
-        run: bun run build-and-test-3
+        run: |
+          bun run build-and-test-3
+          mv dist dist3
+
+      - name: Build and test (effect v4)
+        run: |
+          bun run build-and-test-4
+          mv dist dist4
 
       - name: Publish (effect v3)
-        working-directory: dist
+        working-directory: dist3
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Build and test (effect v4)
-        run: bun run build-and-test-4
-
       - name: Publish (effect v4)
-        working-directory: dist
+        working-directory: dist4
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
