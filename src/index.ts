@@ -328,3 +328,8 @@ export type Initialize<Module extends {Layer: Layer<any, any, any>, new(): {} | 
 
 export type EffectGen<A, E = never, R = never> = fn.Return<A, E, R>;
 
+
+
+import { FileSystem } from "effect-4";
+
+FileSystem.FileSystem

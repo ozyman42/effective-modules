@@ -2,6 +2,7 @@ export async function emitPackageJson() {
   const pkg = await Bun.file("package.json").json();
   const effectMajor = parseInt(pkg.peerDependencies.effect.replace(/^[^0-9]*/, "").split(".")[0]);
   const version = effectMajor >= 4 ? `${pkg.version}-effect4` : pkg.version;
+  await Bun.write("dist/README.md", await Bun.file("README.md").text());
   await Bun.write("dist/package.json", JSON.stringify({
     name: pkg.name,
     version,
