@@ -1,6 +1,6 @@
 {
   "name": "effective-modules",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A more ergonomic way to write Effective code",
   "type": "module",
   "main": "dist/index.js",
@@ -25,11 +25,11 @@
     "@types/bun": "latest",
     "lefthook": "latest",
     "typescript": "^5",
-    "effect-4": "npm:effect@^4.0.0-beta.0",
-    "effect-3": "npm:effect@^3.21.2"
+    "effect-4": "npm:effect@^4.0.0-beta.78",
+    "effect-3": "npm:effect@^3.21.3"
   },
   "peerDependencies": {
-    "effect": "^3.21.2"
+    "effect": "^3.21.3"
   },
   "scripts": {
     "prepare": "lefthook install",

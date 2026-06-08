@@ -125,12 +125,6 @@ function createModule<Interface, Dependencies extends readonly Service<any, any>
           `You must extend the module superclass. You cannot initialize it directly.`
         );
       }
-      // Auto bind
-      const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
-          .filter(prop => typeof (this as any)[prop] === 'function' && prop !== 'constructor');
-      for (const method of methods) {
-        (this as any)[method] = (this as any)[method].bind(this);
-      }
     }
     static get Layer(): Layer<(typeof module)["Identifier"], InitializerError, ExtractContext<Dependencies>> {
       const self = this;
@@ -160,6 +154,12 @@ function createModule<Interface, Dependencies extends readonly Service<any, any>
             instance.initializedDependencies = some(dependenciesObj);
             instance.initializedContext = some(getContext(dependencies, dependenciesObj));
           }
+        }
+        // Auto bind
+        const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(instance))
+            .filter(prop => typeof (instance as any)[prop] === 'function' && prop !== 'constructor');
+        for (const method of methods) {
+          (instance as any)[method] = (instance as any)[method].bind(instance);
         }
         return instance as any;
       }));
@@ -327,9 +327,3 @@ export type Initialize<Module extends {Layer: Layer<any, any, any>, new(): {} | 
     never;
 
 export type EffectGen<A, E = never, R = never> = fn.Return<A, E, R>;
-
-
-
-import { FileSystem } from "effect-4";
-
-FileSystem.FileSystem

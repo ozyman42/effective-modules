@@ -4,9 +4,14 @@ import { Glob } from "bun";
 export async function setEffectVersion(version: "3" | "4") {
   const other = version === "3" ? "4" : "3";
 
-  const effectPkg = await Bun.file(`node_modules/effect-${version}/package.json`).json();
-
   const pkg = await Bun.file("package.json").json();
+  const devSpec: string = pkg.devDependencies[`effect-${version}`];
+  pkg.peerDependencies.effect = devSpec.replace("npm:effect@", "");
+  await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\n");
+
+  await Bun.spawn(["bun", "update", `effect-${version}`], { stdout: "inherit", stderr: "inherit" }).exited;
+
+  const effectPkg = await Bun.file(`node_modules/effect-${version}/package.json`).json();
   pkg.peerDependencies.effect = `^${effectPkg.version}`;
   await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\n");
 
@@ -16,8 +21,6 @@ export async function setEffectVersion(version: "3" | "4") {
 
   await Bun.write("src/effect/index.ts", `export * from "./v${version}";\n`);
   await Bun.write("src/tests/effect/index.ts", `export * from "./v${version}";\n`);
-
-  await Bun.spawn(["bun", "install"], { stdout: "inherit", stderr: "inherit" }).exited;
 
   rmSync(".build-temp", { recursive: true, force: true });
   cpSync("src", ".build-temp", { recursive: true });

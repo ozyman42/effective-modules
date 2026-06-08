@@ -1,5 +1,5 @@
 import { log, type fn } from "../../effect";
-import { implementing } from "../../../"
+import { implementing } from "../../.."
 import { PossibleError } from "../../errors";
 import { Two, type ITwo } from "./interface";
 

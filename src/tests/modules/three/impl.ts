@@ -1,6 +1,6 @@
-import { implementing } from "../../../";
+import { implementing } from "../../..";
 import { type fn } from "../../effect";
-import { modules } from "../";
+import { modules } from "..";
 import { type IThree } from "./interface";
 
 export class ThreeImpl extends implementing(modules.three) implements IThree {

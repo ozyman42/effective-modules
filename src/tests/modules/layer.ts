@@ -1,5 +1,5 @@
 import { provideMerge, type Layer } from "../effect";
-import { Module } from "./";
+import { Module } from ".";
 import { OneImpl } from "./one/impl";
 import { TwoImpl } from "./two/impl";
 import { ThreeImpl } from "./three/impl";

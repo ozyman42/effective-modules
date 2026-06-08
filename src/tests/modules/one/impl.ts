@@ -1,12 +1,16 @@
 import { log, catchTag, succeed, provide, fn } from "../../effect";
-import { implementing, effunct, type Initialize } from "../../../";
-import { modules, Module } from "../";
+import { implementing, effunct, type Initialize } from "../../..";
+import { modules, Module } from "..";
 import { OtherError, PossibleError } from "../../errors";
 import { type IOne } from "./interface";
 import { Two } from "../two/interface";
 
 export class OneImpl extends implementing(modules.one).uses(Two, modules.three).throws<OtherError>() implements IOne {
   private testInstanceVar = 5;
+
+  get two() {
+    return this.getDependency(Two);
+  }
 
   constructor() {
     super(function*(): Initialize<typeof OneImpl> {
@@ -40,6 +44,9 @@ export class OneImpl extends implementing(modules.one).uses(Two, modules.three).
     yield* log("now directly call two");
     const result = yield* this.dependencies.TWO.FinalThing(false);
     yield* log(`Got ${result} from two`);
+    yield* effunct(this.two.FinalThing)(true).pipe(
+      catchTag("PossibleError", e => log(`Got error ${e} from two`))
+    )
   }
 
   private *confirmYieldItem() {

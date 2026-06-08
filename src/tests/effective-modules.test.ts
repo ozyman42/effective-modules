@@ -1,4 +1,4 @@
-import { EffectiveModulesError, EffectiveModulesErrorReason, effunct, implementing, interfaces } from "../";
+import { EffectiveModulesError, EffectiveModulesErrorReason, effunct, implementing, interfaces } from "..";
 import { Module, modules } from "./modules";
 
 import {
@@ -22,6 +22,7 @@ import { Two, type ITwo } from "./modules/two/interface";
 
 test("happy path", async () => {
   const logs: string[] = [];
+
   await expectError(PossibleError, gen(function*() {
     const two = yield* Two;
     yield* two.FinalThing(true);
@@ -59,7 +60,10 @@ test("happy path", async () => {
     "got world",
     "now directly call two",
     "Final thing",
-    "Got final thing from two"
+    "Got final thing from two",
+    "Final thing",
+    "yielding possible error",
+    "Got error PossibleError from two"
   ]);
 });
 
