@@ -1,0 +1,16 @@
+name: CI/CD Pipeline
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    name: Pipeline
+    uses: jive-sh/jive/.github/workflows/reusable-pipeline.yml@main
+    secrets: inherit

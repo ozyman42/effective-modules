@@ -16,29 +16,19 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
-    "incremental": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "outDir": "./dist",
-    "declaration": true,
     "jsx": "react-jsx",
-    "declarationDir": "./dist/types",
-    "sourceMap": true,
     "types": [
       "bun"
-    ],
-    "paths": {
-      "effect/*": [
-        "./node_modules/effect-3/*"
-      ]
-    }
+    ]
   },
   "include": [
-    "src/**/*"
+    "src/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "dist"
+    "dist",
+    "node_modules"
   ]
 }

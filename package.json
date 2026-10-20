@@ -1,40 +1,49 @@
 {
+  "$schema": "./package.schema.json",
   "name": "effective-modules",
   "version": "0.3.2",
+  "license": "MIT",
   "description": "A more ergonomic way to write Effective code",
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/types/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/index.js"
+  "scripts": {
+    "jive:cicd:get-config": "jive-template cicd get-config",
+    "jive:cicd:build": "jive-template cicd build",
+    "jive:cicd:audit": "tsc --noEmit -p tsconfig.json && bun test src",
+    "jive:cicd:deploy:url": "jive-template cicd deploy-url",
+    "jive:cicd:upload-artifacts": "jive-template cicd upload-artifacts",
+    "jive:cicd:deploy": "jive-template cicd deploy",
+    "build:local": "bun ../jive-template-library/src/entrypoints/jive-template.ts cicd build",
+    "deploy:local": "JIVE_DEPLOY_ENVIRONMENT=local JIVE_PIPELINE_CONTEXT='{\"provider\": \"Github\", \"repository\": {\"owner\": \"ozyman42\", \"name\": \"effective-modules\"}, \"sourceBranch\": \"local\", \"sourceCommitSha\": \"\", \"event\": {\"type\": \"DIRECT_WORKFLOW_RUN\"}}' bun ../jive-template-library/src/entrypoints/jive-template.ts cicd deploy",
+    "test": "bun test src",
+    "prepare": "[ \"$CI\" = \"true\" ] || lefthook install"
+  },
+  "jive": {
+    "cicd": {
+      "deploy": {
+        "verb": "Publish Tag",
+        "branches": {
+          "main": [
+            "latest"
+          ]
+        },
+        "previews": false,
+        "sequentially": true
+      },
+      "runsOnPullRequests": true,
+      "runsOn": "ubuntu-latest"
+    },
+    "library": {
+      "daemons": []
     }
   },
-  "files": [
-    "dist"
-  ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ozyman42/effective-modules.git"
+  "peerDependencies": {
+    "effect": "^4.0.0"
   },
   "devDependencies": {
-    "@effect/platform": "^0.96.1",
     "@types/bun": "latest",
+    "effect": "^4.0.0",
+    "jive-template-library": "file:../jive-template-library/dist/base",
     "lefthook": "latest",
-    "typescript": "^5",
-    "effect-4": "npm:effect@^4.0.0-beta.78",
-    "effect-3": "npm:effect@^3.21.3"
-  },
-  "peerDependencies": {
-    "effect": "^3.21.3"
-  },
-  "scripts": {
-    "prepare": "lefthook install",
-    "set-effect-version": "bun src/scripts/set-effect-version.ts",
-    "build-and-test-3": "bun src/scripts/build-and-test.ts 3",
-    "build-and-test-4": "bun src/scripts/build-and-test.ts 4"
+    "typescript": "^5.9.3"
   }
 }

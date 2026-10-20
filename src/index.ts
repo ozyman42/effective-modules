@@ -29,7 +29,7 @@ type ExtractDependenciesObject<Services extends readonly Service<any, any>[]> =
           Services[K] extends Service<infer Id extends string, infer Interface>
             ? { readonly [P in Id]: Interface }
             :
-          Services[K] extends ServiceClass<infer Self, infer Id, infer Interface>
+          Services[K] extends ServiceClass<any, infer Id, infer Interface>
             ? { readonly [P in Id]: Interface }
             :
           never
