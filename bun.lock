@@ -7,7 +7,7 @@
       "devDependencies": {
         "@types/bun": "latest",
         "effect": "^4.0.0",
-        "jive-template-library": "file:../jive-template-library/dist/base",
+        "jive-abstract-library": "0.1.2",
         "lefthook": "latest",
         "typescript": "^5.9.3",
       },
@@ -17,15 +17,39 @@
     },
   },
   "packages": {
+    "@effect/platform-bun": ["@effect/platform-bun@4.0.5", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.5" }, "peerDependencies": { "effect": "^4.0.5" } }, "sha512-tB/GapZ/bVoCbwRgnojGP4TwopvkMoFoSCipXT1sf0guvG/2oRVhWzJW/1vkrYFEdLM7XyRnVVLrSJyqdok7DA=="],
+
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.5", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.0" }, "peerDependencies": { "effect": "^4.0.5" } }, "sha512-a8rCdEkfZBGe9C6bsIjxVZuRp73svIyK5IHwHdDAVsvZXjrbkxusfI+rZ8WlX31RP1mKizwI/E72GQTNfdMWHw=="],
+
     "@types/bun": ["@types/bun@1.3.13", "", { "dependencies": { "bun-types": "1.3.13" } }, "sha512-9fqXWk5YIHGGnUau9TEi+qdlTYDAnOj+xLCmSTwXfAIqXr2x4tytJb43E9uCvt09zJURKXwAtkoH4nLQfzeTXw=="],
+
+    "@types/ejs": ["@types/ejs@3.1.5", "", {}, "sha512-nv+GSx77ZtXiJzwKdsASqi+YQ5Z7vwHsTP0JY2SiQgjGckkBRKZnk8nIM+7oUZ1VCtuTz0+By4qVR7fqzp/Dfg=="],
 
     "@types/node": ["@types/node@25.6.0", "", { "dependencies": { "undici-types": "~7.19.0" } }, "sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ=="],
 
+    "@types/ws": ["@types/ws@8.18.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w=="],
+
     "bun-types": ["bun-types@1.3.13", "", { "dependencies": { "@types/node": "*" } }, "sha512-QXKeHLlOLqQX9LgYaHJfzdBaV21T63HhFJnvuRCcjZiaUDpbs5ED1MgxbMra71CsryN/1dAoXuJJJwIv/2drVA=="],
+
+    "commander": ["commander@13.1.0", "", {}, "sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw=="],
 
     "effect": ["effect@4.0.0", "", {}, "sha512-ooc1TG5t+FfzgYnFz2ff6BBKyZ7EwBRVXC7c4RhQUAD6/TZ2gTXXMeb4WX7a19ozQo4J73/QW+S00YAIresoMQ=="],
 
-    "jive-template-library": ["jive-template-library@file:../jive-template-library/dist/base", { "optionalDependencies": { "jive-template-library-darwin-x64": "file:/Users/alex/github.com/chaine-dance/chaine/packages/jive-template-library/dist/darwin-x64" }, "peerDependencies": { "effect": "^4.0.0", "typescript": "^5.9.3" }, "bin": { "jive-template": "./bin/jive-template" } }],
+    "effective-modules": ["effective-modules@0.3.1-effect4", "", { "peerDependencies": { "effect": "^4.0.0-beta.64" } }, "sha512-YL0BenACL9ySmvnSw+uhJlsL0SycEU+LxBsDAcJ3F1IeZ1uJjXTDjhS0KlZhzGyCwJ/wqigUqNdF5EksTclAdg=="],
+
+    "ejs": ["ejs@6.0.1", "", { "bin": { "ejs": "bin/cli.js" } }, "sha512-UaaM14yby8U3k02ihS1Bmj5Kz2d7CCQM1scxpgs4Mhkq8F1wR2gl3+Ts4h5Ne4Mnt7M9m4Dw7jsuMr3+xO4vZA=="],
+
+    "jive-abstract-library": ["jive-abstract-library@0.1.2", "", { "dependencies": { "@effect/platform-bun": "^4.0.0", "@types/ejs": "^3.1.5", "commander": "^13.1.0", "effective-modules": "0.3.1-effect4", "ejs": "^6.0.1", "jsonc-parser": "^3.3.1" }, "optionalDependencies": { "jive-abstract-library-darwin-arm64": "npm:jive-abstract-library@0.1.2-latest-darwin-arm64", "jive-abstract-library-darwin-x64": "npm:jive-abstract-library@0.1.2-latest-darwin-x64", "jive-abstract-library-linux-arm64": "npm:jive-abstract-library@0.1.2-latest-linux-arm64", "jive-abstract-library-linux-x64": "npm:jive-abstract-library@0.1.2-latest-linux-x64", "jive-abstract-library-windows-x64": "npm:jive-abstract-library@0.1.2-latest-windows-x64" }, "peerDependencies": { "effect": "^4.0.0", "typescript": "^5.9.3" }, "bin": { "jive-library": "bin/jive-library" } }, "sha512-BzLCNGyyDJtrLycX3n+fZSRRmLoeegnJlMQXbJGJqGFTmLZphqAAikhGuRCM7Dg3y7eOan+WoBkSEYC1V0o/pA=="],
+
+    "jive-abstract-library-darwin-arm64": ["jive-abstract-library@0.1.2-latest-darwin-arm64", "", { "os": "darwin", "cpu": "arm64" }, "sha512-8iN7P3MAZlTddIhyu9X8HchImw2sXZzJ4o/p04QdKIYxvg7tpLWkSIZRMXaJMbXzkXxy5XfNQrYIRyojj0bYXQ=="],
+
+    "jive-abstract-library-darwin-x64": ["jive-abstract-library@0.1.2-latest-darwin-x64", "", { "os": "darwin", "cpu": "x64" }, "sha512-c/RBDiiweLG80gXFUUNTnHba/DP26UF0JaLsGMIwbndAzXvtHCf/zJ9Xx+NSWadwCPSZVrw38vXTPIDrlHLIfg=="],
+
+    "jive-abstract-library-linux-x64": ["jive-abstract-library@0.1.2-latest-linux-x64", "", { "os": "linux", "cpu": "x64" }, "sha512-9i+8rFhwXZV83qwq8nAKVsKUNOdL8AOSupjtoRh8r853I5GyywT2zsPqFu1Nu8Dxr1uPo6LIfA1Ubq+oWTFd5g=="],
+
+    "jive-abstract-library-windows-x64": ["jive-abstract-library@0.1.2-latest-windows-x64", "", { "os": "win32", "cpu": "x64" }, "sha512-zwafEEbzn9ZVWwDthynFiqzq/ewf19ajcJGjC++NWmj9mZrw3yuKyiH1RBbOaYSEs7/xNxseWFj9jlE7naQuYA=="],
+
+    "jsonc-parser": ["jsonc-parser@3.3.1", "", {}, "sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ=="],
 
     "lefthook": ["lefthook@2.1.6", "", { "optionalDependencies": { "lefthook-darwin-arm64": "2.1.6", "lefthook-darwin-x64": "2.1.6", "lefthook-freebsd-arm64": "2.1.6", "lefthook-freebsd-x64": "2.1.6", "lefthook-linux-arm64": "2.1.6", "lefthook-linux-x64": "2.1.6", "lefthook-openbsd-arm64": "2.1.6", "lefthook-openbsd-x64": "2.1.6", "lefthook-windows-arm64": "2.1.6", "lefthook-windows-x64": "2.1.6" }, "bin": { "lefthook": "bin/index.js" } }, "sha512-w9sBoR0mdN+kJc3SB85VzpiAAl451/rxdCRcZlwW71QLjkeH3EBQFgc4VMj5apePychYDHAlqEWTB8J8JK/j1Q=="],
 
@@ -53,6 +77,6 @@
 
     "undici-types": ["undici-types@7.19.2", "", {}, "sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg=="],
 
-    "jive-template-library/jive-template-library-darwin-x64": ["jive-template-library-darwin-x64@file:../jive-template-library/dist/darwin-x64", {}],
+    "ws": ["ws@8.22.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="],
   }
 }

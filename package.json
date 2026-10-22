@@ -6,14 +6,14 @@
   "description": "A more ergonomic way to write Effective code",
   "type": "module",
   "scripts": {
-    "jive:cicd:get-config": "jive-template cicd get-config",
-    "jive:cicd:build": "jive-template cicd build",
+    "jive:cicd:get-config": "jive-library cicd get-config",
+    "jive:cicd:build": "jive-library cicd build",
     "jive:cicd:audit": "tsc --noEmit -p tsconfig.json && bun test src",
-    "jive:cicd:deploy:url": "jive-template cicd deploy-url",
-    "jive:cicd:upload-artifacts": "jive-template cicd upload-artifacts",
-    "jive:cicd:deploy": "jive-template cicd deploy",
-    "build:local": "bun ../jive-template-library/src/entrypoints/jive-template.ts cicd build",
-    "deploy:local": "JIVE_DEPLOY_ENVIRONMENT=local JIVE_PIPELINE_CONTEXT='{\"provider\": \"Github\", \"repository\": {\"owner\": \"ozyman42\", \"name\": \"effective-modules\"}, \"sourceBranch\": \"local\", \"sourceCommitSha\": \"\", \"event\": {\"type\": \"DIRECT_WORKFLOW_RUN\"}}' bun ../jive-template-library/src/entrypoints/jive-template.ts cicd deploy",
+    "jive:cicd:deploy:url": "jive-library cicd deploy-url",
+    "jive:cicd:upload-artifacts": "jive-library cicd upload-artifacts",
+    "jive:cicd:deploy": "jive-library cicd deploy",
+    "build:local": "bun ../jive-abstract-library/src/entrypoints/jive-library.ts cicd build",
+    "deploy:local": "JIVE_DEPLOY_ENVIRONMENT=local JIVE_PIPELINE_CONTEXT='{\"provider\": \"Github\", \"repository\": {\"owner\": \"ozyman42\", \"name\": \"effective-modules\"}, \"sourceBranch\": \"local\", \"sourceCommitSha\": \"\", \"event\": {\"type\": \"DIRECT_WORKFLOW_RUN\"}}' bun ../jive-abstract-library/src/entrypoints/jive-library.ts cicd deploy",
     "test": "bun test src",
     "prepare": "[ \"$CI\" = \"true\" ] || lefthook install"
   },
@@ -42,8 +42,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "effect": "^4.0.0",
-    "jive-template-library": "file:../jive-template-library/dist/base",
     "lefthook": "latest",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "jive-abstract-library": "0.1.2"
   }
 }

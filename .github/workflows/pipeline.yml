@@ -9,6 +9,13 @@ on:
   push:
   workflow_dispatch:
 
+# A reusable workflow can only reduce the caller's permissions, never raise them. The deploy job needs
+# id-token:write for trusted publishing, so the caller grants it here; without it GitHub rejects the
+# whole workflow before any job starts, with no logs and no annotation to say why.
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   pipeline:
     name: Pipeline
