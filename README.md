@@ -7,14 +7,17 @@ classes. Background and motivation: [Effective Modules](https://alexleung.net/te
 bun add effective-modules effect
 ```
 
-## Why
+## Compared with plain Effect
 
-- **The interface is the contract.** You write the interface; the implementation `implements` it. Changing
-  an implementation cannot silently change what clients see.
-- **Errors land on the line that caused them.** Methods declare `fn.Return<A, E, R>`, so a wrong error or
-  requirement is flagged where it happens, not across the whole generator body.
-- **Dependencies come with the class.** `.uses(...)` declares them and the superclass wires them up; no
-  layer closures or hand-built `Context`.
+| | Plain Effect v4 | effective-modules |
+| --- | --- | --- |
+| Declare modules | One `class X extends Context.Service<X, IX>()("X") {}` per module, name written three times | One string enum and one `interfaces<Module, {...}>(Module)` call for all of them |
+| Implement a module | `Layer.effect(X, Effect.gen(...))` returning an object literal of closures | A class that `implements IX`, with generator methods checked one by one against the interface |
+| Declare dependencies | Implicit: whatever the layer's generator yields | Explicit: `.uses(A, B)`, which is exactly the layer's requirements |
+| Use a dependency | Captured by closure inside the layer's generator | `this.dependencies.a`, `this.getDependency(A)`, or `this.context` from any method |
+| Construction errors | Inferred from the generator body | Declared up front with `.throws<E>()` |
+| Give dependencies to a helper | Pass each one, or build a `Context` with `Context.add` per dependency | `Effect.provide(this.context)` |
+| Mock in tests | `Layer.succeed(X, {...})` with every method written out | `Impl.mockLayer({...})` with only the methods the test needs; the rest die if called |
 
 ## 1. Declare interfaces
 
