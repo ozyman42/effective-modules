@@ -30,7 +30,10 @@
         "sequentially": true
       },
       "runsOnPullRequests": true,
-      "runsOn": "ubuntu-latest"
+      "runsOn": "ubuntu-latest",
+      "requiredSecrets": [
+        "NPM_TOKEN"
+      ]
     },
     "library": {
       "daemons": []
