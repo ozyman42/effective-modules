@@ -1,112 +1,190 @@
 # Effective Modules
 
-Dependency injection for [Effect](https://effect.website) v4 built from plain TypeScript interfaces and
+Dependency injection for [Effect](https://effect.website) v4, written as plain TypeScript interfaces and
 classes. Background and motivation: [Effective Modules](https://alexleung.net/tech/effective-modules/).
 
 ```sh
 bun add effective-modules effect
 ```
 
-## Compared with plain Effect
+## Plain Effect vs effective-modules
 
-| | Plain Effect v4 | effective-modules |
-| --- | --- | --- |
-| Declare modules | One `class X extends Context.Service<X, IX>()("X") {}` per module, name written three times | One string enum and one `interfaces<Module, {...}>(Module)` call for all of them |
-| Implement a module | `Layer.effect(X, Effect.gen(...))` returning an object literal of closures | A class that `implements IX`, with generator methods checked one by one against the interface |
-| Declare dependencies | Implicit: whatever the layer's generator yields | Explicit: `.uses(A, B)`, which is exactly the layer's requirements |
-| Use a dependency | Captured by closure inside the layer's generator | `this.dependencies.a`, `this.getDependency(A)`, or `this.context` from any method |
-| Construction errors | Inferred from the generator body | Declared up front with `.throws<E>()` |
-| Give dependencies to a helper | Pass each one, or build a `Context` with `Context.add` per dependency | `Effect.provide(this.context)` |
-| Mock in tests | `Layer.succeed(X, {...})` with every method written out | `Impl.mockLayer({...})` with only the methods the test needs; the rest die if called |
+Each comparison below builds the same thing both ways: a `Greeter` module that saves greetings through a
+`Store` module.
 
-## 1. Declare interfaces
+### Declaring modules
 
-Each module is a plain interface. A string enum names them, and `interfaces` turns the enum into one
-Effect `Context.Service` per module. Enum members are nominal, so two modules can't be confused.
+Plain Effect:
+
+```ts
+import { Context, Effect } from "effect";
+
+interface IStore {
+  save(key: string, value: string): Effect.Effect<void, StoreError>;
+  load(key: string): Effect.Effect<string, StoreError>;
+}
+interface IGreeter {
+  greet(name: string): Effect.Effect<string, StoreError>;
+}
+
+class Store extends Context.Service<Store, IStore>()("Store") {}
+class Greeter extends Context.Service<Greeter, IGreeter>()("Greeter") {}
+```
+
+effective-modules:
 
 ```ts
 import { interfaces } from "effective-modules";
 import type { fn } from "effect/Effect";
 
-export interface IGreeter {
-  greet(name: string): fn.Return<string>;
-}
-
-export interface IStore {
+interface IStore {
   save(key: string, value: string): fn.Return<void, StoreError>;
+  load(key: string): fn.Return<string, StoreError>;
+}
+interface IGreeter {
+  greet(name: string): fn.Return<string, StoreError>;
 }
 
-export enum Module {
-  greeter = "greeter",
-  store = "store",
-}
+enum Module { store = "store", greeter = "greeter" }
 
-export const modules = interfaces<Module, {
-  [Module.greeter]: IGreeter;
-  [Module.store]: IStore;
-}>(Module);
+const modules = interfaces<Module, { store: IStore; greeter: IGreeter }>(Module);
 ```
 
-Ordinary Effect services work anywhere a module does (`FileSystem`, or your own
-`class X extends Context.Service<X, I>()("X") {}`).
+Why: one enum names every module once, instead of a class per module that repeats its name three times.
+Methods return `fn.Return`, which is what lets the next example write them as generator methods.
 
-## 2. Implement a module
+### Implementing a module
 
-Extend `implementing(module)`, chain `.uses(...)` for dependencies and `.throws<E>()` if construction can
-fail, then `implements` the interface. Methods are generator methods typed with `fn.Return`
-(`EffectGen` is an alias).
+Plain Effect:
 
 ```ts
-import { implementing } from "effective-modules";
-import { FileSystem } from "effect/FileSystem";
+const GreeterLive = Layer.effect(Greeter, Effect.gen(function* () {
+  const store = yield* Store;
+  return {
+    greet: (name: string) => Effect.gen(function* () {
+      const greeting = `Hello, ${name}`;
+      yield* store.save("last", greeting);
+      return greeting;
+    }),
+  };
+}));
+```
 
-export class GreeterImpl extends implementing(modules.greeter).uses(modules.store, FileSystem) implements IGreeter {
+effective-modules:
+
+```ts
+class GreeterImpl extends implementing(modules.greeter).uses(modules.store) implements IGreeter {
   *greet(name: string): fn.Return<string, StoreError> {
     const greeting = `Hello, ${name}`;
     yield* this.dependencies.store.save("last", greeting);
     return greeting;
   }
 }
+
+// GreeterImpl.Layer: Layer<greeter, never, store>
 ```
 
-Inside a method, a dependency can be reached three ways:
+Why: in plain Effect, a layer's requirements are whatever its generator happens to yield, and its methods
+are closures in an object literal. Here `.uses(...)` states the requirements, `GreeterImpl.Layer` requires
+exactly those, and `implements IGreeter` checks each method against the interface, reporting a mismatch
+on that method rather than on the whole layer.
 
-- `this.dependencies.<key>`, keyed by the module's name (`store`) or a service's key.
-- `this.getDependency(modules.store)`, typed by the module you pass.
-- `this.context`, a `Context` holding every dependency, for `Effect.provide(this.context)` when calling
-  something that requires them.
+### Passing dependencies to a helper
 
-Dependencies are only available once the layer has built the instance; reading them in the constructor
-throws `EffectiveModulesError`. Methods are bound to the instance, so they can be passed around freely.
-
-## 3. Build layers
-
-Every implementation has a static `Layer`. Its requirements are exactly the modules passed to `.uses`, and
-its error is the type passed to `.throws`.
+Plain Effect:
 
 ```ts
-import { Effect, Layer } from "effect";
+const GreeterLive = Layer.effect(Greeter, Effect.gen(function* () {
+  const store = yield* Store;
+  const clock = yield* Clock;
+  const context = Context.empty().pipe(
+    Context.add(Store, store),
+    Context.add(Clock, clock),
+  );
+  return {
+    greet: (name: string) => Effect.gen(function* () {
+      yield* audit(name).pipe(Effect.provide(context));
+      return `Hello, ${name}`;
+    }),
+  };
+}));
+```
 
+effective-modules:
+
+```ts
+class GreeterImpl extends implementing(modules.greeter).uses(modules.store, Clock) implements IGreeter {
+  *greet(name: string): fn.Return<string, StoreError> {
+    yield* audit(name).pipe(Effect.provide(this.context));
+    return `Hello, ${name}`;
+  }
+}
+```
+
+Why: `this.context` already holds every dependency named in `.uses`, so there is no `Context` to build by
+hand and keep in sync with the list of dependencies.
+
+### Mocking in tests
+
+Plain Effect:
+
+```ts
+const StoreTest = Layer.succeed(Store, {
+  save: () => Effect.void,
+  load: () => Effect.die("load is not used in this test"),
+});
+```
+
+effective-modules:
+
+```ts
+const StoreTest = implementing(modules.store).mockLayer({
+  *save() {},
+});
+```
+
+Why: a test writes only the methods it uses. Any other method dies with
+`Property load not implemented on mock for store` if called, so adding a method to `IStore` does not
+break every existing mock.
+
+## Usage
+
+### Building layers
+
+Every implementation has a static `Layer`, composed like any other Effect layer:
+
+```ts
 const program = Effect.gen(function* () {
   const greeter = yield* modules.greeter;
   return yield* greeter.greet("world");
 });
 
 program.pipe(
-  Effect.provide(GreeterImpl.Layer.pipe(
-    Layer.provideMerge(StoreImpl.Layer),
-    Layer.provideMerge(fileSystemLayer),
-  )),
+  Effect.provide(GreeterImpl.Layer.pipe(Layer.provideMerge(StoreImpl.Layer))),
 );
 ```
 
-## Custom construction
+Plain Effect services work anywhere a module does: pass `FileSystem`, or your own `Context.Service`
+class, to `.uses(...)`.
 
-When construction has to do work, pass an initializer to `super`. It returns the dependencies object, and
-`Initialize<typeof Class>` types it. Its errors must be declared with `.throws`.
+### Reaching dependencies
+
+Inside a method:
+
+- `this.dependencies.store`: keyed by module name, or by a service's key.
+- `this.getDependency(modules.store)`: typed by the module you pass.
+- `this.context`: a `Context` holding all of them, for `Effect.provide`.
+
+They exist once the layer has built the instance, so reading them in the constructor throws. Methods are
+bound to the instance and can be passed around freely.
+
+### Construction that can fail
+
+To do work while the layer is built, pass an initializer to `super`. It returns the dependencies, and any
+error it can raise is declared with `.throws`:
 
 ```ts
-export class GreeterImpl extends implementing(modules.greeter).uses(modules.store).throws<ConfigError>() implements IGreeter {
+class GreeterImpl extends implementing(modules.greeter).uses(modules.store).throws<ConfigError>() implements IGreeter {
   constructor() {
     super(function* (): Initialize<typeof GreeterImpl> {
       yield* loadConfig();
@@ -115,37 +193,26 @@ export class GreeterImpl extends implementing(modules.greeter).uses(modules.stor
   }
   // ...
 }
+
+// GreeterImpl.Layer: Layer<greeter, ConfigError, store>
 ```
 
 The initializer must return every module named in `.uses`, or building the layer fails.
 
-## Piping a method: `effunct`
+### Piping a method: `effunct`
 
-A method call is a generator, not an `Effect`, so it has no `.pipe`. `effunct` wraps a method (or any
-generator function) into a traced `Effect.fn`:
+A method call is a generator, not an `Effect`, so it has no `.pipe`. `effunct` turns a method into a
+traced `Effect.fn`:
 
 ```ts
-const result = yield* effunct(store.save)("key", "value").pipe(
-  Effect.catchTag("StoreError", () => Effect.succeed(undefined)),
+yield* effunct(store.save)("key", "value").pipe(
+  Effect.catchTag("StoreError", () => Effect.void),
 );
 ```
 
-## Mocking in tests
+### Errors
 
-`mockLayer` builds a layer from a partial implementation. Any method you leave out dies with
-`Property <name> not implemented on mock for <module>` when called.
-
-```ts
-const layer = GreeterImpl.mockLayer({
-  *greet(name) { return `mock ${name}`; },
-});
-// or without an implementation class:
-implementing(modules.greeter).mockLayer({ /* ... */ });
-```
-
-## Errors
-
-Misuse fails with `EffectiveModulesError`, whose `reason` is an `EffectiveModulesErrorReason`: passing a
-non-service to `implementing` or `.uses`, a module that uses itself, an empty `.uses()`, instantiating the
-superclass directly, reading dependencies before construction, an initializer missing a dependency, or an
-`interfaces` enum whose keys and values differ.
+Misuse fails with `EffectiveModulesError`, whose `reason` is one of `EffectiveModulesErrorReason`:
+passing a non-service to `implementing` or `.uses`, a module that uses itself, an empty `.uses()`,
+instantiating the superclass directly, reading dependencies in the constructor, an initializer that omits
+a dependency, or an `interfaces` enum whose keys and values differ.

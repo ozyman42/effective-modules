@@ -1,7 +1,7 @@
 {
   "$schema": "./package.schema.json",
   "name": "effective-modules",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "license": "MIT",
   "description": "A more ergonomic way to write Effective code",
   "type": "module",
